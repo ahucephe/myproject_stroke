@@ -1,0 +1,154 @@
+---
+title: "Build and deploy a stroke prediction model using R"
+date: "`r Sys.Date()`"
+output: html_document
+author: "Put your name!"
+---
+  
+  # About Data Analysis Report
+  
+  This RMarkdown file contains the report of the data analysis done for the project on building and deploying a stroke prediction model in R. It contains analysis such as data exploration, summary statistics and building the prediction models. The final report was completed on `r date()`. 
+
+**Data Description:**
+  
+  According to the World Health Organization (WHO) stroke is the 2nd leading cause of death globally, responsible for approximately 11% of total deaths.
+
+This data set is used to predict whether a patient is likely to get stroke based on the input parameters like gender, age, 
+various diseases, and smoking status. Each row in the data provides relevant information about the patient.
+
+
+# Task One: Import data and data preprocessing
+
+## Load data and install packages
+
+```{r}
+install.packages("caret")
+install.packages("randomForest")
+install.packages("kernlab")
+install.packages("dplyr")
+library(caret)
+library(randomForest)
+library(kernlab)
+library(dplyr)
+dataset <- read.csv("healthcare-dataset-stroke-data.csv", header=TRUE)
+```
+
+
+## Describe and explore the data
+
+```{r}
+dim(dataset)
+sapply(dataset, class)
+summary_data <- summary(dataset)
+str_data <- str(dataset)
+head(dataset)
+table(dataset$stroke)
+dataset$stroke <- factor(dataset$stroke)
+dataset$hypertension <- factor(dataset$hypertension)
+dataset$heart_disease <- factor(dataset$heart_disease)
+dataset$gender <- factor(dataset$gender)
+dataset$ever_married <- factor(dataset$ever_married)
+dataset$work_type <- factor(dataset$work_type)
+dataset$Residence_type <- factor(dataset$Residence_type)
+dataset$smoking_status <- factor(dataset$smoking_status)
+dataset$bmi[dataset$bmi == "N/A"] <- NA
+dataset$bmi <- as.numeric(dataset$bmi)
+
+## imputation: Missing value analysis was performed according to the mean for null values in 
+##the bmi variable.
+dataset$bmi[is.na(dataset$bmi)] <- mean(dataset$bmi, na.rm = TRUE)
+
+## The class imbalance in the stroke variable was resolved with the SMOTE algorithm.
+balanced_data <- upSample(x = dataset[, -which(names(dataset) == "stroke")], y = dataset$stroke)
+dataset <- balanced_data
+names(dataset)[names(dataset) == "Class"] <- "stroke"
+```
+
+
+
+# Task Two: Build prediction models
+
+```{r}
+training_index <- createDataPartition(dataset$stroke, p=0.70, list=FALSE)
+training <- dataset[training_index,]
+test <- dataset[-training_index,]
+
+control <- trainControl(method="cv", number=5)
+metric <- "Accuracy"
+
+
+# CART
+set.seed(7)
+fit.cart <- train(stroke ~., data=training, method="rpart", metric=metric, trControl=control)
+
+# kNN
+set.seed(7)
+fit.knn <- train(stroke ~., data=training, method="knn", metric=metric, trControl=control)
+
+# SVM
+set.seed(7)
+fit.svm <- train(stroke~., data=training, method="svmRadial", metric=metric, trControl=control)
+
+# Random Forest
+set.seed(7)
+fit.rf <- train(stroke~., data=training, method="rf", metric=metric, trControl=control)
+
+# Random Forest
+set.seed(7)
+fit.nnet <- train(stroke ~ ., data = training, method = "nnet", trControl = control, trace = FALSE)
+
+
+```
+# Task Three: Evaluate and select prediction models
+
+```{r}
+results <- resamples(list(rpart=fit.cart, knn=fit.knn, svm=fit.svm, rf=fit.rf, nnet=fit.nnet))
+summary(results)
+```
+
+
+
+# Task Four: Deploy the prediction model
+
+```{r}
+predictions <- predict(fit.rf, test)
+confusionMatrix(predictions, test$stroke)
+```
+
+
+
+
+# Task Five: Findings and Conclusions
+Our model achieved an accuracy of 99.11% on the test data, with a sensitivity of 98.22% and a specificity of 100%, indicating robust and effective training.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
